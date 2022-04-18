@@ -1,0 +1,33 @@
+# local package
+-e .
+
+# external requirements
+numpy==1.18.1
+h2o==3.36.1.1
+#awswrangler
+#pyathena
+#sqlalchemy==1.3.10
+#sagemaker-experiments
+#scipy
+#scikit-learn
+#imbalanced-learn==0.6.1
+#pandas==1.0.5
+#flask
+#gevent
+#gunicorn
+#xgboost==0.82
+#seaborn==0.9.0
+#matplotlib==3.0.3
+#boto3
+#click
+#coverage
+#awscli
+#flake8
+#sagemaker
+#shap==0.23.0
+#bokeh
+#pyarrow==0.17.0
+#tenacity==6.0.0
+
+#python-dotenv>=0.5.1
+#
