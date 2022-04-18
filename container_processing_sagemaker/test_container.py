@@ -1,8 +1,9 @@
 
 import h2o
 import logging
+import argparse
 
-if __name__ = '__main__':
+if __name__ == '__main__':
     
     # Parse parameters
     parser = argparse.ArgumentParser()
@@ -14,4 +15,5 @@ if __name__ = '__main__':
     
     print(parameter1)
     
+    # Setup H2O
     h2o.init()
