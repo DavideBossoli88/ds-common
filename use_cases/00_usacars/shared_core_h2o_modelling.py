@@ -163,9 +163,14 @@ def ds_common_h2o_process_automl_main(aml, df_h2o_train, df_h2o_test, dict_h2o_p
     df_output_info                         = pd.concat(list_df)
     df_output_info['tag_data_experiment']  = dict_h2o_process_automl['str_tag_data_experiment']
     df_output_info['tag_model_experiment'] = dict_h2o_process_automl['str_tag_model_experiment']
+    
+    df_feature_importance                         = pd.concat(list_df_feature_importance)
+    df_feature_importance['tag_data_experiment']  = dict_h2o_process_automl['str_tag_data_experiment']
+    df_feature_importance['tag_model_experiment'] = dict_h2o_process_automl['str_tag_model_experiment']
+    
     df_output_info = df_output_info[['tag_data_experiment', 'tag_model_experiment', 'model_id', 'algo'] + [col for col in df_output_info.columns.tolist() if col != 'model_id' and col != 'algo' and col != 'tag_data_experiment' and col != 'tag_model_experiment']].copy()
     
-    return df_output_info, pd.concat(list_df_feature_importance)
+    return df_output_info, df_feature_importance
     
     
 def ds_common_h2o_process_model_sub_get_info_stacked_ensemble(str_model_id):
