@@ -2,6 +2,7 @@
 import numpy as np
 import pandas as pd
 import logging
+import h2o
 
 
 ## Setup logger
@@ -34,14 +35,14 @@ def ds_common_pandas_dataframe_split_main(df, str_colname_split, dict_splits, di
     str_colname_split : string
                         The name of the column that will be created as train/test/validation fold
               
-    dict_splits : dictionary key-value
-                  Key   = name of the level
-                  Value = proportion of sample
+    dict_splits : dictionary 
+                  Key   = Name of the level
+                  Value = Proportion of sample
                  
-    dict_metrics : dictionary key-value
-                   Standard dictionary used for pandas group by aggregated functions  
+    dict_metrics : dictionary 
+                   Standard dictionary used for pandas group-by aggregated functions  
                    
-    dict_metrics_tolerance : dictionary key-value
+    dict_metrics_tolerance : dictionary 
                              Contains the tolerance of the computed metric max/min - 1
                     
     int_seed : integer
@@ -109,9 +110,9 @@ def ds_common_pandas_dataframe_split_sub_get_str_colname_split(df, int_seed, dic
     int_seed : integer
                   The first iteration will start from this seed number, afterwards it will increase it by 1
               
-    dict_splits : dictionary key-value
-                  Key   = name of the level
-                  Value = proportion of sample
+    dict_splits : dictionary 
+                  Key   = Name of the level
+                  Value = Proportion of sample
                     
 
     Returns
@@ -154,12 +155,11 @@ def ds_common_pandas_dataframe_split_sub_get_dict_tolerance_errors(df, dict_metr
     ----------
     df : pandas Dataframe
                  
-    dict_metrics : dictionary key-value
-                   Standard dictionary used for pandas group by aggregated functions  
-                   
-                   
-    dict_metrics_tolerance : dictionary key-value
-                         Contains the tolerance of the computed metric max/min - 1
+    dict_metrics : dictionary 
+                   Standard dictionary used for pandas group-by aggregated functions  
+                    
+    dict_metrics_tolerance : dictionary 
+                             Contains the tolerance of the computed metric max/min - 1
                    
     str_colname_split : string
                         The name of the column that will be created as train/test/validation fold 
@@ -191,30 +191,7 @@ def ds_common_pandas_dataframe_split_sub_get_dict_tolerance_errors(df, dict_metr
             
     return dict_tolerance_errors, dict_computed_metrics, df_metrics
 
-
-## Define unit test functions
-def unit_test_ds_common_pandas_dataframe_split_main():
-    
-    # Get dummy test_df
-    test_df = pd.DataFrame(
-                           {
-                            'price':   [i for i in range(0, 10000)], 
-                            'data_id': [str(i) for i in range(0, 10000)]
-                           }
-                          )
-    
-    # Setup parameters
-    str_colname_split         = 'flag_type'
-    dict_splits               = {'train': 0.5, 'test': 0.25, 'validation': 0.25}
-    dict_metrics              = {'price': ['mean', 'std']}
-    dict_metrics_tolerance    = {'price_mean': 0.05, 'price_std': 0.05}
-    int_max_number_iterations = 100
-    int_seed                  = 1 
-    
-    return ds_common_pandas_dataframe_split_main(test_df, str_colname_split, dict_splits, dict_metrics, dict_metrics_tolerance, int_seed, int_max_number_iterations)
-
-
-def ds_common_get_list_constant_features_main(df, lst_features):
+def ds_common_get_list_model_features_main(df, lst_features):
     
     """
     This function returns a list of constant features of a dataframe.
@@ -231,13 +208,89 @@ def ds_common_get_list_constant_features_main(df, lst_features):
     list of constant columns 
     """
     
+    ## Remove constant columns
+    # Get list of constant columns
     lst_constant_features = []
     for str_col in lst_features:
         if (df[str_col].value_counts().shape[0] == 1):
             lst_constant_features.append(str_col)
         else:
             pass
-            
     logging.info(f'Df has the following constant features: {lst_constant_features}')
     
-    return lst_constant_features
+    # Update lst_features
+    lst_features = list(set(lst_features) - set(lst_constant_features))
+    
+    
+    ## Potentially other filters here
+    
+    return lst_features
+
+
+def ds_common_h2o_data_preparation_main(str_path_df_processed, dict_h2o_init, str_colname_split, str_colname_split_cv, str_target_variable):
+    
+    """
+    This function prepared train and test set for H2O Automl training.
+    Steps:
+    - Initialize H2O
+    - Import the dataset
+    - Split train / test datasets
+    - Prepare the k-fold column (remark: levels must always be integers)
+    - Log some statistics
+    - Optimize memory by removing the original h2o frame
+    - Return train and test sets
+    
+    
+    Parameters
+    ----------
+    str_path_df_processed : string
+                            Local path where the df is saved
+    
+    dict_h2o_init : dictionary
+                    Dictionary of arguments for the H2O Init
+               
+    str_colname_split : string
+                        The name of the train/test/validation fold column 
+                                                 
+    str_colname_split_cv : string
+                           The name of the CV fold column 
+                           
+    str_target_variable : string
+                          The name of the target variable
+
+
+    Returns
+    ----------
+    df_h2o_train : h2o Frame
+    
+    df_h2o_test : h2o Frame
+    """
+    
+    ## Initialize H2O
+    h2o.init(**dict_h2o_init)
+    
+    
+    ## Import df processed
+    df_h2o = h2o.import_file(path=str_path_df_processed)
+    
+    
+    ## Split train / test H2O
+    mask_train   = df_h2o[str_colname_split] == "train"
+    mask_test    = df_h2o[str_colname_split] == "test"
+    df_h2o_train = df_h2o[mask_train, :]
+    df_h2o_test  = df_h2o[mask_test, :] 
+    
+    
+    ## Convert fold columns to factor
+    df_h2o_train[str_colname_split_cv] = df_h2o_train[str_colname_split_cv].asfactor()
+    
+    
+    ## Explore splits target variable mean and variance
+    logging.info(f'Train vs test target variable mean:     {df_h2o_train[str_target_variable].mean()[0]} vs {df_h2o_test[str_target_variable].mean()[0]}')
+    logging.info(f'Train vs test target variable variance: {df_h2o_train[str_target_variable].var()} vs {df_h2o_test[str_target_variable].var()}')
+    
+    
+    ## Optimize memory
+    h2o.remove(df_h2o)
+
+    return df_h2o_train, df_h2o_test
