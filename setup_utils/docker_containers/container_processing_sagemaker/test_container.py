@@ -3,6 +3,8 @@ import h2o
 import logging
 import argparse
 
+from opt.program.shared_core_data_processing import * 
+
 if __name__ == '__main__':
     
     # Parse parameters
