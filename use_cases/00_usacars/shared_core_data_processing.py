@@ -227,70 +227,78 @@ def ds_common_get_list_model_features_main(df, lst_features):
     return lst_features
 
 
-def ds_common_h2o_data_preparation_main(str_path_df_processed, dict_h2o_init, str_colname_split, str_colname_split_cv, str_target_variable):
+def ds_common_h2o_data_preparation_main(dict_h2o_init, str_path_df_processed, str_colname_split, lst_factor_features, lst_numerical_kpi):
     
     """
     This function prepared train and test set for H2O Automl training.
-    Steps:
-    - Initialize H2O
-    - Import the dataset
-    - Split train / test datasets
-    - Prepare the k-fold column (remark: levels must always be integers)
-    - Log some statistics
-    - Optimize memory by removing the original h2o frame
-    - Return train and test sets
+    Main steps:
+    - Initialize H2O with h2o.init(**dict_h2o_init)
+    - Import the dataset from the local path specified by str_path_df_processed. Parquet and CSV files are supported. If multiple files are available, specify a folder: h2o will read all files by default. 
+    - Extract train / test / validation datasets. 
+    - Cast as factor all columns specified in lst_factor_features.
+    - Log train/test/validation mean & variances of all numerical columns specified in lst_numerical_kpi.
+    - Optimize memory by removing the original h2o frame.
+    - Return train, test and validation sets.
     
     
     Parameters
-    ----------
-    str_path_df_processed : string
-                            Local path where the df is saved
-    
+    ----------                     
     dict_h2o_init : dictionary
-                    Dictionary of arguments for the H2O Init
-               
+                    Key: h2o.init() parameter name
+                    Value: h2o.init() parameter value
+                    Dictionary containing with h2o.init() configurations.
+                   
+    str_path_df_processed : string
+                            Local name where the dataset is saved.
+                                                   
     str_colname_split : string
-                        The name of the train/test/validation fold column 
-                                                 
-    str_colname_split_cv : string
-                           The name of the CV fold column 
-                           
-    str_target_variable : string
-                          The name of the target variable
+                        Name of the column used for the train/test/validation split. 
+                        Remarks: 
+                        - column levels must be either "train", "test" or "validation".
+                                                
+    lst_factor_features : list of strings
+                          Each element is the df column names to be casted as factor.
 
+    lst_numerical_kpi : list of strings
+                        Each element is the df column names to be casted as numeric whose mean and variance will be logged.
+                                                 
 
     Returns
     ----------
     df_h2o_train : h2o Frame
     
     df_h2o_test : h2o Frame
+    
+    df_h2o_valid : h2o Frame
     """
     
     ## Initialize H2O
     h2o.init(**dict_h2o_init)
     
-    
     ## Import df processed
     df_h2o = h2o.import_file(path=str_path_df_processed)
     
+    ## Cast columns as factors
+    for col in lst_factor_features:
+        df_h2o[col] = df_h2o[col].asfactor()
     
-    ## Split train / test H2O
-    mask_train   = df_h2o[str_colname_split] == "train"
-    mask_test    = df_h2o[str_colname_split] == "test"
-    df_h2o_train = df_h2o[mask_train, :]
-    df_h2o_test  = df_h2o[mask_test, :] 
+    ## Split train / test / validation H2O. 
+    mask_train      = df_h2o[str_colname_split] == "train"
+    mask_test       = df_h2o[str_colname_split] == "test"
+    mask_validation = df_h2o[str_colname_split] == "validation"
+    df_h2o_train    = df_h2o[mask_train, :]
+    df_h2o_test     = df_h2o[mask_test, :] 
+    df_h2o_valid    = df_h2o[mask_validation, :] 
     
-    
-    ## Convert fold columns to factor
-    df_h2o_train[str_colname_split_cv] = df_h2o_train[str_colname_split_cv].asfactor()
-    
-    
-    ## Explore splits target variable mean and variance
-    logging.info(f'Train vs test target variable mean:     {df_h2o_train[str_target_variable].mean()[0]} vs {df_h2o_test[str_target_variable].mean()[0]}')
-    logging.info(f'Train vs test target variable variance: {df_h2o_train[str_target_variable].var()} vs {df_h2o_test[str_target_variable].var()}')
-    
+    ## Log shape of train / test / validation H2O Frames
+    logging.info(f'Train vs test vs valid H2O frame number of records: {df_h2o_train.dim[0]} vs {df_h2o_test.dim[0]} vs {df_h2o_valid.dim[0]}')
+                
+    ## Log numeric column KPIs means and variances
+    for col in lst_numerical_kpi:
+        logging.info(f'Train vs test vs valid {col} mean: {df_h2o_train[col].asnumeric().mean()[0]} vs {df_h2o_test[col].asnumeric().mean()[0]} vs {df_h2o_valid[col].asnumeric().mean()[0]}')
+        logging.info(f'Train vs test vs valid {col} variance: {df_h2o_train[col].asnumeric().var()} vs {df_h2o_test[col].asnumeric().var()} vs {df_h2o_valid[col].asnumeric().var()}')
     
     ## Optimize memory
     h2o.remove(df_h2o)
 
-    return df_h2o_train, df_h2o_test
+    return df_h2o_train, df_h2o_test, df_h2o_valid
