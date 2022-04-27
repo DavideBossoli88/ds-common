@@ -45,9 +45,9 @@ ENV PYTHONUNBUFFERED=TRUE
 ENV PYTHONDONTWRITEBYTECODE=TRUE
 ENV PATH="/opt/program:${PATH}"
 
-#COPY container /opt/program
+COPY container /opt/program
 
-#WORKDIR /opt/program
+WORKDIR /opt/program
 RUN ls
 
 
